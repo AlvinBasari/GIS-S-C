@@ -94,7 +94,7 @@ export default function MapView({
 
         // Add custom subtle attribution in bottom right
         L.control.attribution({ position: 'bottomright', prefix: false })
-            .addAttribution('ShoeCareGIS Bekasi &bull; OSM / Esri')
+            .addAttribution('Shoes and Care GIS &bull; OSM / Esri')
             .addTo(map);
 
         // Add Zoom Control at bottom right
@@ -135,9 +135,9 @@ export default function MapView({
                         );
 
                         layer.bindTooltip(
-                            `<div class="p-2 text-xs text-slate-100 bg-slate-900/95 rounded-lg shadow-xl border border-slate-700/80 font-sans">
-                                <div class="font-semibold text-white">Kecamatan ${feature.properties.name}</div>
-                                <div class="text-[11px] text-amber-400 font-mono mt-0.5">${districtBranches.length} Gerai Terdata</div>
+                            `<div class="p-2 text-xs text-slate-800 bg-white/95 rounded-xl shadow-xl border border-stone-200/90 font-sans">
+                                <div class="font-semibold text-slate-900">Kecamatan ${feature.properties.name}</div>
+                                <div class="text-[11px] text-amber-600 font-mono mt-0.5">${districtBranches.length} Gerai Terdata</div>
                             </div>`,
                             { sticky: true, className: 'leaflet-custom-tooltip' }
                         );
@@ -181,11 +181,10 @@ export default function MapView({
             maxZoom: selected.maxZoom,
             subdomains: selected.subdomains,
         }).addTo(mapInstanceRef.current);
-
         tileLayerRef.current = newTile;
     }, [activeBasemap]);
 
-    // Render Markers Cabang Shoe Care
+    // Render Markers Cabang Shoes & Care
     useEffect(() => {
         if (!mapInstanceRef.current || !markersLayerRef.current) return;
 
@@ -200,12 +199,12 @@ export default function MapView({
                     ${isSelected ? `
                         <div class="absolute top-0 w-9 h-9 rounded-full bg-amber-400/40 animate-pin-ring pointer-events-none"></div>
                     ` : ''}
-                    <div class="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110 shadow-lg relative ${
+                    <div class="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110 shadow-md relative ${
                         isSelected
-                            ? 'bg-amber-400 text-slate-950 ring-2 ring-white shadow-amber-400/30'
+                            ? 'bg-amber-500 text-slate-950 ring-2 ring-white shadow-amber-500/30'
                             : hasSpecial
-                                ? 'bg-slate-900 text-amber-400 border border-amber-400/60 ring-1 ring-slate-800'
-                                : 'bg-slate-900 text-slate-200 border border-slate-700 ring-1 ring-slate-800'
+                                ? 'bg-white text-amber-600 border border-amber-400 shadow-sm ring-1 ring-amber-100'
+                                : 'bg-white text-slate-700 border border-slate-200 shadow-sm ring-1 ring-slate-100'
                     }">
                         <!-- Icon Vektor Shoe Care (Sepatu Sneaker) -->
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -215,13 +214,13 @@ export default function MapView({
                             <path d="M11 12l2 2"/>
                         </svg>
                         ${hasSpecial ? `
-                            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full border-2 border-slate-900" title="Memiliki Layanan Khusus"></span>
+                            <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white shadow-xs" title="Memiliki Layanan Khusus"></span>
                         ` : ''}
                     </div>
-                    <div class="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700 ${isSelected ? 'bg-amber-400 border-amber-400' : ''}"></div>
+                    <div class="w-1.5 h-1.5 rotate-45 -mt-1 border-r border-b ${isSelected ? 'bg-amber-500 border-amber-500' : 'bg-white border-slate-200'}"></div>
                     
                     <!-- Label Nama Cabang Shoes & Care yang Jelas di Bawah Pin -->
-                    <div class="mt-1 px-2 py-0.5 rounded bg-slate-900/95 text-[10px] text-slate-200 border border-slate-700/80 shadow-md whitespace-nowrap max-w-[120px] truncate leading-tight ${isSelected ? 'border-amber-400 text-amber-300 font-semibold' : ''}">
+                    <div class="mt-1 px-2 py-0.5 rounded-md bg-white/95 text-[10px] text-slate-800 border border-stone-200/90 shadow-sm whitespace-nowrap max-w-[120px] truncate leading-tight ${isSelected ? 'border-amber-500 text-amber-900 font-bold bg-amber-50' : 'font-medium'}">
                         ${branch.branch_name.replace('Cabang ', '')}
                     </div>
                 </div>
@@ -237,54 +236,103 @@ export default function MapView({
 
             const marker = L.marker([branch.latitude, branch.longitude], { icon: customIcon });
 
+            const districtLabel = branch.district_name.includes('Bekasi') ? `Kec. ${branch.district_name}` : branch.district_name;
+            const daysList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+            const todayIdx = new Date().getDay();
+            const todayName = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][todayIdx];
+
+            let dailyRowsHtml = '';
+            if (branch.operating_hours_daily) {
+                dailyRowsHtml = daysList.map((d) => {
+                    const h = branch.operating_hours_daily[d] || 'Tutup';
+                    const isClosed = h === 'Tutup';
+                    const isToday = d === todayName;
+                    return `
+                        <div class="flex items-center justify-between py-0.5 px-1.5 rounded ${isToday ? 'bg-amber-100 font-bold text-amber-950' : 'text-slate-600'}">
+                            <span class="flex items-center gap-1">${d} ${isToday ? '<span class="text-[8px] bg-amber-500 text-slate-950 px-1 rounded font-extrabold">Hari Ini</span>' : ''}</span>
+                            <span class="font-mono ${isClosed ? 'text-rose-600 font-bold' : 'text-slate-900'}">${isClosed ? 'Tutup' : h + ' WIB'}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
             // Tooltip saat hover untuk nama lengkap cabang
             marker.bindTooltip(
-                `<div class="p-1.5 text-xs text-white bg-slate-900 rounded-lg shadow-lg border border-slate-700 font-sans">
-                    <strong class="text-amber-400 block">${branch.brand_name}</strong>
-                    <span>${branch.branch_name} &bull; Kec. ${branch.district_name}</span>
+                `<div class="p-2 text-xs text-slate-800 bg-white rounded-xl shadow-xl border border-stone-200 font-sans">
+                    <strong class="text-amber-700 block">${branch.brand_name}</strong>
+                    <span class="text-slate-600">${branch.branch_name} &bull; ${districtLabel}</span>
                 </div>`,
                 { direction: 'top', offset: [0, -36], className: 'leaflet-custom-tooltip' }
             );
 
             // Popup Card HTML
             const popupContent = document.createElement('div');
-            popupContent.className = 'w-72 bg-slate-900 text-slate-100 rounded-xl overflow-hidden font-sans';
+            popupContent.className = 'w-72 bg-white text-slate-800 rounded-2xl overflow-hidden font-sans border border-stone-200/90 shadow-xl';
             popupContent.innerHTML = `
-                <div class="p-3 border-b border-slate-800/80 bg-slate-950/70 flex items-center justify-between">
-                    <div>
-                        <span class="text-[9px] uppercase font-semibold tracking-wider text-slate-400">
-                            ${branch.brand_name}
-                        </span>
-                        <h4 class="font-bold text-sm text-white leading-tight mt-0.5">${branch.branch_name}</h4>
+                <div class="p-3 border-b border-stone-200/80 bg-stone-50/80 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-black border border-stone-200 overflow-hidden flex items-center justify-center shrink-0">
+                            <img src="/images/logo.png" alt="Shoes and Care" class="w-full h-full object-contain p-0.5" />
+                        </div>
+                        <div>
+                            <span class="text-[9px] uppercase font-semibold tracking-wider text-stone-500">
+                                ${branch.brand_name}
+                            </span>
+                            <h4 class="font-bold text-sm text-slate-900 leading-tight mt-0.5">${branch.branch_name}</h4>
+                        </div>
                     </div>
                     <div class="text-right">
-                        <span class="text-xs font-semibold text-amber-400 flex items-center gap-0.5 justify-end font-mono">
+                        <span class="text-xs font-semibold text-amber-600 flex items-center gap-0.5 justify-end font-mono">
                             ★ ${branch.rating}
                         </span>
-                        <span class="text-[10px] text-slate-400">Kec. ${branch.district_name}</span>
+                        <span class="text-[10px] text-stone-500">${districtLabel}</span>
                     </div>
                 </div>
                 <div class="p-3 space-y-2 text-xs">
-                    <p class="text-slate-300 text-[11px] leading-relaxed line-clamp-2">${branch.full_address}</p>
+                    <p class="text-slate-600 text-[11px] leading-relaxed line-clamp-2">${branch.full_address}</p>
                     ${branch.benchmark_notes ? `
-                        <p class="text-[10px] text-slate-400 italic">Patokan: ${branch.benchmark_notes}</p>
+                        <p class="text-[10px] text-stone-500 italic">Patokan: ${branch.benchmark_notes}</p>
                     ` : ''}
-                    <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80 font-mono">
-                        <span>Jam: ${branch.open_hour} - ${branch.close_hour} WIB</span>
-                        ${branch.distance_km !== null ? `<span class="text-emerald-400 font-semibold">${branch.distance_km} km</span>` : ''}
-                    </div>
-                    ${hasSpecial ? `
-                        <div class="bg-amber-400/10 p-2 rounded-lg border border-amber-400/20 text-[11px] text-amber-300">
-                            <span class="text-[10px] font-semibold text-amber-400 block uppercase tracking-wider">Spesialisasi Cabang:</span>
-                            <div class="font-medium mt-0.5">${branch.special_treatments[0].name}</div>
+                    <div class="space-y-1.5 text-[11px] pt-1 border-t border-stone-100">
+                        <div class="flex items-center justify-between font-mono text-slate-600">
+                            <span>Hari Ini (${todayName}): <strong class="text-slate-900">${branch.operating_hours_daily?.[todayName] ? (branch.operating_hours_daily[todayName] === 'Tutup' ? '<span class=\"text-rose-600 font-sans\">Tutup</span>' : branch.operating_hours_daily[todayName] + ' WIB') : (branch.open_hour + ' - ' + branch.close_hour + ' WIB')}</strong></span>
+                            ${branch.distance_km !== null ? `<span class="text-emerald-600 font-semibold">${branch.distance_km} km</span>` : ''}
                         </div>
-                    ` : ''}
+                        
+                        <details class="text-[10px] bg-amber-50/70 rounded-xl p-2 border border-amber-200/80 group cursor-pointer">
+                            <summary class="font-bold text-amber-900 flex items-center justify-between outline-none">
+                                <span>🕒 Jadwal Buka (Senin - Minggu)</span>
+                                <span class="text-[9px] text-amber-800 font-medium">Buka Rincian ▾</span>
+                            </summary>
+                            <div class="mt-1.5 pt-1 border-t border-amber-200/60 font-sans space-y-0.5">
+                                ${dailyRowsHtml || `
+                                    <div class="flex justify-between py-0.5"><span>Senin - Jumat:</span><span class="font-mono">${branch.open_hour || '09:00'} - ${branch.close_hour || '21:00'} WIB</span></div>
+                                    <div class="flex justify-between py-0.5"><span>Sabtu - Minggu:</span><span class="font-mono">${branch.is_open_weekend ? `${branch.weekend_open_hour || '10:00'} - ${branch.weekend_close_hour || '20:00'} WIB` : 'Tutup'}</span></div>
+                                `}
+                            </div>
+                        </details>
+                    </div>
+                    ${branch.is_pickup_available ? `
+                        <div class="bg-emerald-50/90 p-2 rounded-xl border border-emerald-200/90 text-[11px] text-emerald-900 flex items-center justify-between">
+                            <div>
+                                <span class="text-[9px] font-bold text-emerald-800 block uppercase tracking-wider">SAC GO Antar-Jemput:</span>
+                                <span class="font-medium">Gratis (Radius 5 km)</span>
+                            </div>
+                            <span class="text-[9px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                                READY
+                            </span>
+                        </div>
+                    ` : `
+                        <div class="bg-stone-50 p-1.5 rounded-xl border border-stone-200/80 text-[10px] text-stone-500">
+                            Khusus Walk-in di Gerai (SAC GO Non-Aktif)
+                        </div>
+                    `}
                 </div>
-                <div class="p-2 bg-slate-950/90 border-t border-slate-800 flex items-center gap-2">
-                    <button id="btn-detail-${branch.id}" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium border border-slate-700 transition">
+                <div class="p-2.5 bg-stone-50/90 border-t border-stone-200 flex items-center gap-2">
+                    <button id="btn-detail-${branch.id}" class="flex-1 py-1.5 rounded-lg bg-white hover:bg-stone-100 text-slate-800 text-xs font-medium border border-stone-200 shadow-xs transition">
                         Detail Layanan
                     </button>
-                    <a href="https://wa.me/${branch.whatsapp_number}?text=Halo%20${encodeURIComponent(branch.brand_name)}%20${encodeURIComponent(branch.branch_name)},%20saya%20melihat%20dari%20Web%20GIS%20Shoe%20Care%20Bekasi." target="_blank" class="p-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition flex items-center gap-1">
+                    <a href="https://wa.me/${branch.whatsapp_number}?text=Halo%20Shoes%20and%20Care%20${encodeURIComponent(branch.branch_name)},%20saya%20melihat%20dari%20Shoes%20and%20Care%20GIS." target="_blank" class="p-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition flex items-center gap-1 shadow-xs">
                         WA
                     </a>
                 </div>
@@ -371,22 +419,24 @@ export default function MapView({
         bufferLayerRef.current.clearLayers();
 
         if (showBuffer) {
-            branches.forEach((branch) => {
-                const circle = L.circle([branch.latitude, branch.longitude], {
-                    radius: bufferRadiusKm * 1000,
-                    color: '#f59e0b',
-                    fillColor: '#f59e0b',
-                    fillOpacity: 0.08,
-                    weight: 1.5,
+            branches
+                .filter((b) => b.is_pickup_available)
+                .forEach((branch) => {
+                    const circle = L.circle([branch.latitude, branch.longitude], {
+                        radius: bufferRadiusKm * 1000,
+                        color: '#f59e0b',
+                        fillColor: '#f59e0b',
+                        fillOpacity: 0.08,
+                        weight: 1.5,
+                    });
+
+                    circle.bindTooltip(
+                        `Jangkauan SAC GO ${branch.branch_name} (${bufferRadiusKm} km)`,
+                        { sticky: true }
+                    );
+
+                    bufferLayerRef.current.addLayer(circle);
                 });
-
-                circle.bindTooltip(
-                    `Jangkauan Layanan ${branch.branch_name} (${bufferRadiusKm} km)`,
-                    { sticky: true }
-                );
-
-                bufferLayerRef.current.addLayer(circle);
-            });
         }
     }, [showBuffer, bufferRadiusKm, branches]);
 
@@ -419,6 +469,34 @@ export default function MapView({
         }
     }, [showHeatmap, branches]);
 
+    // Auto-fit bounds saat cabang difilter (berdasarkan kecamatan / search)
+    useEffect(() => {
+        if (!mapInstanceRef.current || !branches || branches.length === 0) return;
+
+        // Jika terfilter (kurang dari 65 cabang), fokuskan peta ke kelompok cabang yang cocok
+        if (branches.length < 65) {
+            const validBranches = branches.filter((b) => b.latitude && b.longitude);
+            if (validBranches.length > 0) {
+                const bounds = L.latLngBounds(validBranches.map((b) => [b.latitude, b.longitude]));
+                if (bounds.isValid()) {
+                    mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 1 });
+                }
+            }
+        }
+    }, [branches]);
+
+    // Fit seluruh Indonesia (semua 69 cabang)
+    const handleFitAll = () => {
+        if (!mapInstanceRef.current || !branches || branches.length === 0) return;
+        const validBranches = branches.filter((b) => b.latitude && b.longitude);
+        if (validBranches.length > 0) {
+            const bounds = L.latLngBounds(validBranches.map((b) => [b.latitude, b.longitude]));
+            if (bounds.isValid()) {
+                mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], duration: 1.2 });
+            }
+        }
+    };
+
     // Reset center to Kota Bekasi
     const handleResetCenter = () => {
         if (!mapInstanceRef.current) return;
@@ -426,42 +504,51 @@ export default function MapView({
     };
 
     return (
-        <div className="relative flex-1 h-[calc(100vh-53px)] bg-slate-950 overflow-hidden">
+        <div className="relative flex-1 h-[calc(100vh-53px)] bg-[#f8fafc] overflow-hidden">
             {/* Leaflet Map Canvas */}
             <div ref={mapContainerRef} className="w-full h-full z-0" />
 
             {/* Floating Map Workbench Dock (Top-Right) */}
             <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
                 {/* Floating Workbench Card */}
-                <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-xl shadow-xl p-3 w-64 space-y-3 text-xs text-slate-200">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                        <div className="flex items-center gap-1.5 font-semibold text-white">
-                            <Layers className="w-4 h-4 text-amber-400" strokeWidth={1.75} />
+                <div className="bg-white/95 backdrop-blur-xl border border-stone-200/90 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-3.5 w-64 space-y-3 text-xs text-slate-700">
+                    <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+                        <div className="flex items-center gap-1.5 font-semibold text-slate-900">
+                            <Layers className="w-4 h-4 text-amber-600" strokeWidth={1.75} />
                             <span>Lapisan Peta GIS</span>
                         </div>
-                        <button
-                            onClick={handleResetCenter}
-                            className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition"
-                            title="Reset Tampilan ke Bekasi"
-                        >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={handleFitAll}
+                                className="px-2 py-0.5 rounded-lg bg-stone-100 hover:bg-stone-200/80 text-[10px] font-semibold text-slate-700 transition border border-stone-200/80"
+                                title="Lihat Sebaran Seluruh Indonesia"
+                            >
+                                Indonesia
+                            </button>
+                            <button
+                                onClick={handleResetCenter}
+                                className="p-1 rounded-lg hover:bg-stone-100 text-slate-400 hover:text-slate-800 transition"
+                                title="Fokus Area Bekasi"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Basemap Segment Control */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+                        <label className="text-[10px] uppercase font-semibold text-stone-500 tracking-wider">
                             Pilihan Basemap:
                         </label>
-                        <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                        <div className="grid grid-cols-3 gap-1 bg-stone-100/80 p-1 rounded-xl border border-stone-200/70">
                             {Object.entries(basemaps).map(([key, item]) => (
                                 <button
                                     key={key}
                                     onClick={() => setActiveBasemap(key)}
-                                    className={`py-1 rounded text-[11px] font-medium transition text-center ${
+                                    className={`py-1 rounded-lg text-[11px] font-medium transition text-center ${
                                         activeBasemap === key
-                                            ? 'bg-amber-400 text-slate-950 font-semibold'
-                                            : 'text-slate-400 hover:text-white'
+                                            ? 'bg-white text-slate-900 font-bold shadow-xs border border-stone-200/50'
+                                            : 'text-slate-600 hover:text-slate-900'
                                     }`}
                                 >
                                     {item.name}
@@ -471,38 +558,38 @@ export default function MapView({
                     </div>
 
                     {/* GIS Overlay Toggles */}
-                    <div className="space-y-2 pt-1 border-t border-slate-800">
-                        <label className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+                    <div className="space-y-2 pt-1 border-t border-stone-100">
+                        <label className="text-[10px] uppercase font-semibold text-stone-500 tracking-wider">
                             Analisis Spasial:
                         </label>
 
                         {/* Batas Kecamatan */}
                         <label className="flex items-center justify-between cursor-pointer group">
-                            <span className="text-slate-300 group-hover:text-white transition">Batas 12 Kecamatan</span>
+                            <span className="text-slate-700 group-hover:text-slate-900 transition">Batas 12 Kecamatan</span>
                             <input
                                 type="checkbox"
                                 checked={showDistricts}
                                 onChange={(e) => setShowDistricts(e.target.checked)}
-                                className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-amber-400 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                             />
                         </label>
 
                         {/* Buffer Jangkauan */}
                         <div className="space-y-1.5">
                             <label className="flex items-center justify-between cursor-pointer group">
-                                <span className="text-slate-300 group-hover:text-white transition">Buffer Jangkauan Layanan</span>
+                                <span className="text-slate-700 group-hover:text-slate-900 transition">Buffer Jangkauan Layanan</span>
                                 <input
                                     type="checkbox"
                                     checked={showBuffer}
                                     onChange={(e) => setShowBuffer(e.target.checked)}
-                                    className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-amber-400 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                    className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                                 />
                             </label>
                             {showBuffer && (
-                                <div className="pl-2 pt-1 border-l-2 border-amber-400/40 space-y-1">
-                                    <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                                <div className="pl-2 pt-1 border-l-2 border-amber-400 space-y-1">
+                                    <div className="flex items-center justify-between text-[11px] text-stone-500 font-mono">
                                         <span>Radius Servis:</span>
-                                        <span className="text-amber-400 font-semibold">{bufferRadiusKm} km</span>
+                                        <span className="text-amber-700 font-bold">{bufferRadiusKm} km</span>
                                     </div>
                                     <input
                                         type="range"
@@ -511,7 +598,7 @@ export default function MapView({
                                         step="0.5"
                                         value={bufferRadiusKm}
                                         onChange={(e) => setBufferRadiusKm(parseFloat(e.target.value))}
-                                        className="w-full accent-amber-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+                                        className="w-full accent-amber-500 cursor-pointer h-1.5 bg-stone-200 rounded-lg"
                                     />
                                 </div>
                             )}
@@ -519,12 +606,12 @@ export default function MapView({
 
                         {/* Heatmap Densitas */}
                         <label className="flex items-center justify-between cursor-pointer group">
-                            <span className="text-slate-300 group-hover:text-white transition">Heatmap Kepadatan Gerai</span>
+                            <span className="text-slate-700 group-hover:text-slate-900 transition">Heatmap Kepadatan Gerai</span>
                             <input
                                 type="checkbox"
                                 checked={showHeatmap}
                                 onChange={(e) => setShowHeatmap(e.target.checked)}
-                                className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-amber-400 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                                className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                             />
                         </label>
                     </div>

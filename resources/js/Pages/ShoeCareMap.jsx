@@ -5,8 +5,7 @@ import Sidebar from '../Components/Sidebar';
 import MapView from '../Components/MapView';
 import BranchDetailModal from '../Components/BranchDetailModal';
 import PriceCalculatorModal from '../Components/PriceCalculatorModal';
-import SpatialAnalysisModal from '../Components/SpatialAnalysisModal';
-import AddBranchModal from '../Components/AddBranchModal';
+import BookingModal from '../Components/BookingModal';
 
 export default function ShoeCareMap({
     branches = [],
@@ -32,12 +31,15 @@ export default function ShoeCareMap({
     );
     const [isLocating, setIsLocating] = useState(false);
 
-    // State Modal Dialogs
+    // State Modal Dialogs (Pelanggan)
     const [detailModalBranch, setDetailModalBranch] = useState(null);
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
     const [calculatorInitialBranch, setCalculatorInitialBranch] = useState(null);
-    const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
-    const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
+    const [isBookingOpen, setIsBookingOpen] = useState(false);
+    const [bookingInitialBranch, setBookingInitialBranch] = useState(null);
+    const [bookingInitialTreatments, setBookingInitialTreatments] = useState([]);
+    const [bookingInitialPairCount, setBookingInitialPairCount] = useState(1);
+    const [bookingInitialShoeType, setBookingInitialShoeType] = useState('Sneakers Casual / Canvas');
 
     // Fungsi Trigger GPS Geolocation
     const handleLocateUser = () => {
@@ -69,8 +71,7 @@ export default function ShoeCareMap({
             (err) => {
                 console.warn('Gagal mendapatkan GPS:', err.message);
                 setIsLocating(false);
-                // Fallback default center kota bekasi jika GPS ditolak
-                alert('Tidak dapat mengakses lokasi perangkat. Menggunakan lokasi default Kota Bekasi.');
+                alert('Tidak dapat mengakses lokasi perangkat. Menggunakan lokasi default.');
             },
             { enableHighAccuracy: true, timeout: 8000 }
         );
@@ -84,8 +85,8 @@ export default function ShoeCareMap({
                 return false;
             }
 
-            // Filter Treatment Khusus Only
-            if (filterSpecialOnly && (!branch.special_treatments || branch.special_treatments.length === 0)) {
+            // Filter SAC GO Antar-Jemput
+            if (filterSpecialOnly && !branch.is_pickup_available) {
                 return false;
             }
 
@@ -128,10 +129,10 @@ export default function ShoeCareMap({
     }, [branches, selectedDistrict, filterSpecialOnly, selectedTreatmentCategory, searchQuery]);
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-            <Head title="Peta Pemetaan Jasa Shoe Care Kota Bekasi - Web GIS" />
+        <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+            <Head title="Shoes and Care GIS - Layanan Cuci Sepatu & Antar-Jemput SAC GO" />
 
-            {/* Top Navigation */}
+            {/* Top Navigation Konsumen */}
             <Navbar
                 totalBranches={branches.length}
                 totalDistricts={districts.length}
@@ -139,8 +140,10 @@ export default function ShoeCareMap({
                     setCalculatorInitialBranch(activeBranch || branches[0]);
                     setIsCalculatorOpen(true);
                 }}
-                onOpenAnalysis={() => setIsAnalysisOpen(true)}
-                onOpenAddBranch={() => setIsAddBranchOpen(true)}
+                onOpenBooking={() => {
+                    setBookingInitialBranch(activeBranch || branches[0]);
+                    setIsBookingOpen(true);
+                }}
                 onLocateUser={handleLocateUser}
                 isLocating={isLocating}
                 userLocation={userLocation}
@@ -177,7 +180,7 @@ export default function ShoeCareMap({
                 />
             </div>
 
-            {/* Modals */}
+            {/* Modals Konsumen */}
             {detailModalBranch && (
                 <BranchDetailModal
                     branch={detailModalBranch}
@@ -185,6 +188,12 @@ export default function ShoeCareMap({
                     onOpenCalculatorWithBranch={(branch) => {
                         setCalculatorInitialBranch(branch);
                         setIsCalculatorOpen(true);
+                    }}
+                    onOpenBookingWithBranch={(branch) => {
+                        setBookingInitialBranch(branch);
+                        setBookingInitialTreatments([]);
+                        setIsBookingOpen(true);
+                        setDetailModalBranch(null);
                     }}
                 />
             )}
@@ -194,21 +203,29 @@ export default function ShoeCareMap({
                     branches={branches}
                     initialBranch={calculatorInitialBranch}
                     onClose={() => setIsCalculatorOpen(false)}
+                    onProceedToBooking={(branch, treatmentIds, pairs, shoeType) => {
+                        setBookingInitialBranch(branch);
+                        setBookingInitialTreatments(treatmentIds);
+                        setBookingInitialPairCount(pairs);
+                        setBookingInitialShoeType(shoeType);
+                        setIsBookingOpen(true);
+                        setIsCalculatorOpen(false);
+                    }}
                 />
             )}
 
-            {isAnalysisOpen && (
-                <SpatialAnalysisModal
-                    spatialStats={spatialStats}
-                    districts={districts}
-                    onClose={() => setIsAnalysisOpen(false)}
-                />
-            )}
-
-            {isAddBranchOpen && (
-                <AddBranchModal
-                    districts={districts}
-                    onClose={() => setIsAddBranchOpen(false)}
+            {isBookingOpen && (
+                <BookingModal
+                    branches={branches}
+                    initialBranch={bookingInitialBranch}
+                    initialTreatments={bookingInitialTreatments}
+                    initialPairCount={bookingInitialPairCount}
+                    initialShoeType={bookingInitialShoeType}
+                    onClose={() => {
+                        setIsBookingOpen(false);
+                        setBookingInitialTreatments([]);
+                    }}
+                    userLocation={userLocation}
                 />
             )}
         </div>

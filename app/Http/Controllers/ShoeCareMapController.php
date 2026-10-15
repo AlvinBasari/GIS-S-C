@@ -42,11 +42,10 @@ class ShoeCareMapController extends Controller
             $query->where('district_id', $request->input('district_id'));
         }
 
-        // Filter cabang yang memiliki treatment khusus tertentu
-        if ($request->filled('has_special') && $request->boolean('has_special')) {
-            $query->whereHas('treatments', function ($q) {
-                $q->where('treatment_type', 'KHUSUS');
-            });
+        // Filter cabang yang memiliki fitur SAC GO (antar-jemput) atau filter khusus
+        if (($request->filled('has_special') && $request->boolean('has_special')) ||
+            ($request->filled('has_sac_go') && $request->boolean('has_sac_go'))) {
+            $query->where('is_pickup_available', true);
         }
 
         // Filter cabang yang menyediakan master treatment tertentu
@@ -94,11 +93,13 @@ class ShoeCareMapController extends Controller
                 'review_count' => $branch->review_count,
                 'open_hour' => $branch->open_hour,
                 'close_hour' => $branch->close_hour,
-                'is_open_weekend' => $branch->is_open_weekend,
-                'is_pickup_available' => $branch->is_pickup_available,
+                'weekend_open_hour' => $branch->weekend_open_hour ?? '10:00',
+                'weekend_close_hour' => $branch->weekend_close_hour ?? '20:00',
+                'is_open_weekend' => (bool) $branch->is_open_weekend,
+                'is_pickup_available' => (bool) $branch->is_pickup_available,
                 'pickup_coverage' => $branch->pickup_coverage,
                 'image_url' => $branch->image_url,
-                'distance_km' => $distanceKm !== null ? round($distanceKm, 2) : null,
+                'treatments' => $branch->treatments->values(),
                 'general_treatments' => $branch->treatments->where('treatment_type', 'UMUM')->values(),
                 'special_treatments' => $branch->treatments->where('treatment_type', 'KHUSUS')->values(),
                 'total_treatments_count' => $branch->treatments->count(),
@@ -110,12 +111,13 @@ class ShoeCareMapController extends Controller
             $branches = $branches->sortBy('distance_km')->values();
         }
 
-        // Statistik Wilayah & GIS untuk Fase 3
+        // Statistik Wilayah & GIS untuk Shoes and Care GIS
         $spatialStats = [
             'total_branches' => Branch::count(),
             'total_districts' => District::count(),
             'total_treatments' => BranchTreatment::count(),
-            'special_treatments_count' => BranchTreatment::where('treatment_type', 'KHUSUS')->count(),
+            'special_treatments_count' => Branch::where('is_pickup_available', true)->count(),
+            'sac_go_count' => Branch::where('is_pickup_available', true)->count(),
             'general_treatments_count' => BranchTreatment::where('treatment_type', 'UMUM')->count(),
             'districts_distribution' => $districts->map(fn (District $d) => [
                 'name' => $d->name,
@@ -129,7 +131,7 @@ class ShoeCareMapController extends Controller
             'districts' => $districts,
             'masterTreatments' => $masterTreatments,
             'spatialStats' => $spatialStats,
-            'filters' => $request->only(['search', 'district_id', 'has_special', 'master_treatment_id', 'user_lat', 'user_lng']),
+            'filters' => $request->only(['search', 'district_id', 'has_special', 'has_sac_go', 'master_treatment_id', 'user_lat', 'user_lng']),
         ]);
     }
 
@@ -152,17 +154,13 @@ class ShoeCareMapController extends Controller
             'instagram_handle' => 'nullable|string|max:50',
             'open_hour' => 'nullable|string',
             'close_hour' => 'nullable|string',
-            'is_pickup_available' => 'boolean',
+            'is_pickup_available' => 'nullable|boolean',
             'pickup_coverage' => 'nullable|string',
-            // Input treatment khusus opsional saat buat cabang
-            'special_treatment_name' => 'nullable|string|max:150',
-            'special_treatment_price' => 'nullable|numeric|min:0',
-            'special_treatment_desc' => 'nullable|string',
-            'special_treatment_duration' => 'nullable|string',
-            'special_treatment_badge' => 'nullable|string',
         ]);
 
         $slug = Str::slug($validated['brand_name'].' '.$validated['branch_name'].' '.rand(100, 999));
+        $isPickup = $request->boolean('is_pickup_available');
+        $pickupCoverage = $validated['pickup_coverage'] ?? ($isPickup ? 'Radius 5 km (Layanan Jemput & Antar Gratis)' : null);
 
         $branch = Branch::create([
             'district_id' => $validated['district_id'],
@@ -179,8 +177,8 @@ class ShoeCareMapController extends Controller
             'instagram_handle' => $validated['instagram_handle'] ?? null,
             'open_hour' => $validated['open_hour'] ?? '09:00',
             'close_hour' => $validated['close_hour'] ?? '21:00',
-            'is_pickup_available' => $validated['is_pickup_available'] ?? true,
-            'pickup_coverage' => $validated['pickup_coverage'] ?? null,
+            'is_pickup_available' => $isPickup,
+            'pickup_coverage' => $pickupCoverage,
             'rating' => 4.8,
             'review_count' => 12,
             'image_url' => 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80',
@@ -204,24 +202,61 @@ class ShoeCareMapController extends Controller
             ]);
         }
 
-        // Jika mengisi treatment khusus tambahan
-        if (! empty($validated['special_treatment_name']) && ! empty($validated['special_treatment_price'])) {
+        // Jika fitur SAC GO (antar-jemput) diaktifkan via toggle
+        if ($isPickup) {
             BranchTreatment::create([
                 'branch_id' => $branch->id,
                 'master_treatment_id' => null,
                 'treatment_type' => 'KHUSUS',
-                'name' => $validated['special_treatment_name'],
-                'category' => 'Layanan Eksklusif',
-                'description' => $validated['special_treatment_desc'] ?? 'Layanan khusus cabang ini.',
-                'price' => $validated['special_treatment_price'],
-                'est_duration' => $validated['special_treatment_duration'] ?? '2-3 Hari',
+                'name' => 'SAC GO (Fitur Antar-Jemput)',
+                'category' => 'Antar-Jemput',
+                'description' => 'Layanan jemput dan antar gratis hingga radius 5 km dari lokasi gerai Anda oleh tim Shoes and Care.',
+                'price' => 0,
+                'est_duration' => 'Same Day / Sesuai Jadwal',
                 'is_available' => true,
                 'is_featured' => true,
-                'badge_label' => $validated['special_treatment_badge'] ?: 'Eksklusif Cabang '.$branch->branch_name,
+                'badge_label' => 'SAC GO Aktif',
+                'notes' => 'Pemesanan antar-jemput dapat dilakukan via WhatsApp resmi cabang atau hotline SAC GO.',
             ]);
         }
 
-        return redirect()->route('map.index')->with('success', 'Cabang baru berhasil didaftarkan ke SIG Kota Bekasi!');
+        return redirect()->route('map.index')->with('success', 'Cabang baru berhasil didaftarkan ke Shoes and Care GIS!');
+    }
+
+    /**
+     * Toggle status SAC GO (antar-jemput) untuk cabang yang sudah ada.
+     */
+    public function toggleSacGo(Branch $branch): RedirectResponse
+    {
+        $branch->is_pickup_available = ! $branch->is_pickup_available;
+        if ($branch->is_pickup_available) {
+            $branch->pickup_coverage = $branch->pickup_coverage ?: 'Radius 5 km (Layanan Jemput & Antar Gratis)';
+            BranchTreatment::updateOrCreate(
+                [
+                    'branch_id' => $branch->id,
+                    'name' => 'SAC GO (Fitur Antar-Jemput)',
+                ],
+                [
+                    'master_treatment_id' => null,
+                    'treatment_type' => 'KHUSUS',
+                    'category' => 'Antar-Jemput',
+                    'description' => 'Layanan jemput dan antar gratis hingga radius 5 km dari lokasi gerai Anda oleh tim Shoes and Care.',
+                    'price' => 0,
+                    'est_duration' => 'Same Day / Sesuai Jadwal',
+                    'is_available' => true,
+                    'is_featured' => true,
+                    'badge_label' => 'SAC GO Aktif',
+                    'notes' => 'Pemesanan antar-jemput dapat dilakukan via WhatsApp resmi cabang atau hotline SAC GO.',
+                ]
+            );
+        } else {
+            BranchTreatment::where('branch_id', $branch->id)
+                ->where('name', 'SAC GO (Fitur Antar-Jemput)')
+                ->delete();
+        }
+        $branch->save();
+
+        return redirect()->route('map.index')->with('success', "Status SAC GO cabang {$branch->branch_name} berhasil diperbarui!");
     }
 
     /**

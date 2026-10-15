@@ -71,15 +71,15 @@ class ShoeCareMapTest extends TestCase
     }
 
     /**
-     * Test pendaftaran cabang baru dengan koordinat spasial dan treatment khusus.
+     * Test pendaftaran cabang baru dengan koordinat spasial dan fitur SAC GO (antar-jemput).
      */
-    public function test_can_store_new_branch_with_special_treatment(): void
+    public function test_can_store_new_branch_with_sac_go_toggle(): void
     {
         $district = District::first();
 
         $payload = [
             'district_id' => $district->id,
-            'brand_name' => 'Kicks Atelier',
+            'brand_name' => 'Shoes and Care',
             'branch_name' => 'Cabang Galaxy 2',
             'full_address' => 'Jl. Pulo Sirih Barat No. 88, Bekasi Selatan',
             'benchmark_notes' => 'Dekat Kolam Renang Tirtamas Galaxy',
@@ -90,12 +90,7 @@ class ShoeCareMapTest extends TestCase
             'open_hour' => '09:00',
             'close_hour' => '21:00',
             'is_pickup_available' => true,
-            'pickup_coverage' => 'Radius 5 km',
-            'special_treatment_name' => 'Custom Embroidery Sneaker',
-            'special_treatment_price' => 200000,
-            'special_treatment_desc' => 'Bordir manual inisial nama pada sneakers kanvas.',
-            'special_treatment_duration' => '3 Hari',
-            'special_treatment_badge' => 'Eksklusif Galaxy 2',
+            'pickup_coverage' => 'Radius 5 km (Layanan Jemput & Antar Gratis)',
         ];
 
         $response = $this->post('/branches', $payload);
@@ -103,16 +98,30 @@ class ShoeCareMapTest extends TestCase
         $response->assertRedirect('/');
 
         $this->assertDatabaseHas('branches', [
-            'brand_name' => 'Kicks Atelier',
+            'brand_name' => 'Shoes and Care',
             'branch_name' => 'Cabang Galaxy 2',
             'kelurahan' => 'Jaka Setia',
+            'is_pickup_available' => true,
         ]);
 
         $this->assertDatabaseHas('branch_treatments', [
-            'name' => 'Custom Embroidery Sneaker',
+            'name' => 'SAC GO (Fitur Antar-Jemput)',
             'treatment_type' => 'KHUSUS',
-            'price' => 200000,
         ]);
+    }
+
+    /**
+     * Test toggle status SAC GO pada cabang yang sudah ada.
+     */
+    public function test_can_toggle_sac_go_on_existing_branch(): void
+    {
+        $branch = Branch::first();
+        $initialStatus = $branch->is_pickup_available;
+
+        $response = $this->post("/branches/{$branch->id}/toggle-sac-go");
+        $response->assertRedirect('/');
+
+        $this->assertEquals(! $initialStatus, $branch->fresh()->is_pickup_available);
     }
 
     /**

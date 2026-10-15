@@ -22,6 +22,7 @@ class Branch extends Model
         'is_open_weekend' => 'boolean',
         'is_pickup_available' => 'boolean',
         'is_active' => 'boolean',
+        'operating_hours_daily' => 'array',
     ];
 
     /**
@@ -54,6 +55,22 @@ class Branch extends Model
     public function specialTreatments(): HasMany
     {
         return $this->hasMany(BranchTreatment::class)->where('treatment_type', 'KHUSUS');
+    }
+
+    /**
+     * @return HasMany<User>
+     */
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    /**
+     * @return HasMany<Order>
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 
     /**
